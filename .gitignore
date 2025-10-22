@@ -1,0 +1,23 @@
+# PlatformIO
+.pio/
+.vscode/.browse.c_cpp.db*
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch
+.vscode/settings.json
+
+# Arquivos compilados
+*.elf
+*.bin
+*.hex
+*.map
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Documentação gerada
+/docs/_build/
