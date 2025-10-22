@@ -937,7 +937,7 @@ void loop() {
     // DESCOMENTE O MÓDULO QUE DESEJA EXECUTAR:
     
     // --- MÓDULO 1: LEDs ---
-    // modulo1_ex1();      // 1.1 - Piscar LED 3x rápido, 3x devagar
+    modulo1_ex1();      // 1.1 - Piscar LED 3x rápido, 3x devagar
     // modulo1_ex2a();     // 1.2a - Direita→Esquerda mantendo
     // modulo1_ex2b();     // 1.2b - Esquerda→Direita mantendo
     // modulo1_ex2c();     // 1.2c - 1 LED por vez D→E
