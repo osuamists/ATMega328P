@@ -50,6 +50,23 @@
 #define TGL_BIT(REG, BIT)    (REG ^= (1 << BIT))
 #define READ_BIT(REG, BIT)   ((REG >> BIT) & 1)
 
+// Macros para acesso aos LEDs (em portas diferentes)
+#define SET_LED1()   SET_BIT(PORTD, LED1)
+#define CLR_LED1()   CLR_BIT(PORTD, LED1)
+#define TGL_LED1()   TGL_BIT(PORTD, LED1)
+
+#define SET_LED2()   SET_BIT(PORTD, LED2)
+#define CLR_LED2()   CLR_BIT(PORTD, LED2)
+#define TGL_LED2()   TGL_BIT(PORTD, LED2)
+
+#define SET_LED3()   SET_BIT(PORTB, LED3)
+#define CLR_LED3()   CLR_BIT(PORTB, LED3)
+#define TGL_LED3()   TGL_BIT(PORTB, LED3)
+
+#define SET_LED4()   SET_BIT(PORTB, LED4)
+#define CLR_LED4()   CLR_BIT(PORTB, LED4)
+#define TGL_LED4()   TGL_BIT(PORTB, LED4)
+
 // ================================================================================
 // DEFINIÇÕES DE PINOS
 // ================================================================================
@@ -58,11 +75,11 @@
 #define BTN2    PC3
 #define BTN3    PC4
 
-// LEDs em PORTB
-#define LED1    PB0
-#define LED2    PB1
-#define LED3    PB2
-#define LED4    PB3
+// LEDs em PORTD e PORTB (novos pinos)
+#define LED1    PD3  // PORTD
+#define LED2    PD4  // PORTD
+#define LED3    PB0  // PORTB
+#define LED4    PB1  // PORTB
 
 // Display (para Ex 3.10)
 #define SEG_A   PB4
@@ -140,9 +157,11 @@ unsigned long millis_custom() {
 // FUNÇÃO DE LEITURA DE BOTÕES COM DEBOUNCE
 // ================================================================================
 void ler_botoes() {
+    uint8_t btn_pins[3] = {BTN1, BTN2, BTN3};
+    
     for (uint8_t i = 0; i < 3; i++) {
-        uint8_t btn_pin = BTN1 + i;
-        uint8_t reading = !READ_BIT(PINC, btn_pin);  // Invertido (pull-up)
+        uint8_t btn_pin = btn_pins[i];
+        uint8_t reading = !READ_BIT(PINC, btn_pin);  // Invertido (pull-up, ativo baixo)
         
         if (reading != btn_last_state[i]) {
             btn_last_debounce[i] = millis_custom();
@@ -173,9 +192,9 @@ void modulo3_ex1() {
     }
     
     if (ex31_led_state) {
-        SET_BIT(PORTB, LED1);
+        SET_LED1();
     } else {
-        CLR_BIT(PORTB, LED1);
+        CLR_LED1();
     }
 }
 
@@ -194,21 +213,21 @@ void modulo3_ex2() {
     
     switch (ex32_mode) {
         case 0:  // OFF
-            CLR_BIT(PORTB, LED1);
+            CLR_LED1();
             break;
         case 1:  // ON
-            SET_BIT(PORTB, LED1);
+            SET_LED1();
             break;
         case 2:  // Piscar normal (500ms)
             if (millis_custom() - last_blink >= 500) {
                 last_blink = millis_custom();
-                TGL_BIT(PORTB, LED1);
+                TGL_LED1();
             }
             break;
         case 3:  // Piscar rápido (100ms)
             if (millis_custom() - last_blink >= 100) {
                 last_blink = millis_custom();
-                TGL_BIT(PORTB, LED1);
+                TGL_LED1();
             }
             break;
     }
@@ -227,13 +246,25 @@ void modulo3_ex3() {
     if (millis_custom() - ex33_last_update >= 500) {
         ex33_last_update = millis_custom();
         
-        // Apaga LEDs 1-3
-        PORTB &= 0xF8;
+        // Apaga todos os LEDs
+        CLR_LED1();
+        CLR_LED2();
+        CLR_LED3();
         
         if (ex33_direction == 0) {
-            SET_BIT(PORTB, LED1 + ex33_led_index);
+            // Sequência 1-2-3
+            switch (ex33_led_index) {
+                case 0: SET_LED1(); break;
+                case 1: SET_LED2(); break;
+                case 2: SET_LED3(); break;
+            }
         } else {
-            SET_BIT(PORTB, LED1 + (2 - ex33_led_index));
+            // Sequência 3-2-1
+            switch (ex33_led_index) {
+                case 0: SET_LED3(); break;
+                case 1: SET_LED2(); break;
+                case 2: SET_LED1(); break;
+            }
         }
         
         ex33_led_index++;
@@ -256,13 +287,13 @@ void modulo3_ex4() {
         }
         
         if (interval == 0) {
-            SET_BIT(PORTB, LED1);
+            SET_LED1();
         } else if (millis_custom() - last_toggle >= interval) {
             last_toggle = millis_custom();
-            TGL_BIT(PORTB, LED1);
+            TGL_LED1();
         }
     } else {
-        CLR_BIT(PORTB, LED1);
+        CLR_LED1();
         interval = 500;
     }
 }
@@ -272,29 +303,37 @@ void modulo3_ex4() {
 // ================================================================================
 void modulo3_ex5() {
     static unsigned long last_toggle = 0;
-    static uint16_t intervals[] = {1000, 500, 250, 100, 50};
+    const unsigned long intervals[] = {500, 250, 125, 62, 31};  // Frequências
+    static uint8_t botao_era_pressionado = 0;
+
+    // Detecta borda de descida (soltou o botão)
+    if (btn_state[0] == 0 && botao_era_pressionado == 1) {
+        // Checar se foi clique curto (< 2 segundos)
+        if ((millis_custom() - btn_press_time[0]) < 2000) {
+            ex35_freq++;
+            if (ex35_freq >= 5) ex35_freq = 0;
+        }
+        botao_era_pressionado = 0;
+    }
     
-    // Clique curto
-    if (btn_pressed[0] && !btn_state[0]) {
-        btn_pressed[0] = 0;
-        ex35_freq++;
-        if (ex35_freq >= 5) ex35_freq = 0;
+    // Marca que botão está pressionado
+    if (btn_state[0] == 1) {
+        botao_era_pressionado = 1;
     }
     
     // Segurar 5s
-    if (btn_state[0] && (millis_custom() - btn_press_time[0] >= 5000)) {
+    if (btn_state[0] == 1 && (millis_custom() - btn_press_time[0] >= 5000)) {
         ex35_freq = 0;
-        btn_pressed[0] = 0;
     }
     
     // Pisca LED
     if (ex35_freq > 0) {
         if (millis_custom() - last_toggle >= intervals[ex35_freq - 1]) {
             last_toggle = millis_custom();
-            TGL_BIT(PORTB, LED1);
+            TGL_LED1();
         }
     } else {
-        CLR_BIT(PORTB, LED1);
+        CLR_LED1();
     }
 }
 
@@ -303,11 +342,11 @@ void modulo3_ex5() {
 // ================================================================================
 void modulo3_ex6() {
     if (btn_state[0] && btn_state[1]) {
-        CLR_BIT(PORTB, LED1);
+        CLR_LED1();
     } else if (btn_state[0] || btn_state[1]) {
-        SET_BIT(PORTB, LED1);
+        SET_LED1();
     } else {
-        CLR_BIT(PORTB, LED1);
+        CLR_LED1();
     }
 }
 
@@ -319,8 +358,8 @@ void modulo3_ex7() {
     static uint8_t modo = 0;
     
     if (btn_state[0] && btn_state[1]) {
-        CLR_BIT(PORTB, LED1);
-        CLR_BIT(PORTB, LED2);
+        CLR_LED1();
+        CLR_LED2();
     } else {
         if (btn_pressed[0]) {
             btn_pressed[0] = 0;
@@ -332,16 +371,16 @@ void modulo3_ex7() {
         }
         
         if (modo == 0) {
-            SET_BIT(PORTB, LED1);
+            SET_LED1();
             if (millis_custom() - last_blink >= 300) {
                 last_blink = millis_custom();
-                TGL_BIT(PORTB, LED2);
+                TGL_LED2();
             }
         } else {
-            SET_BIT(PORTB, LED2);
+            SET_LED2();
             if (millis_custom() - last_blink >= 300) {
                 last_blink = millis_custom();
-                TGL_BIT(PORTB, LED1);
+                TGL_LED1();
             }
         }
     }
@@ -356,7 +395,9 @@ void modulo3_ex8() {
     static uint8_t modo = 0;
     
     if (btn_state[0] && btn_state[1]) {
-        PORTB &= 0xF8;
+        CLR_LED1();
+        CLR_LED2();
+        CLR_LED3();
         modo = 0;
     } else if (btn_state[0]) {
         modo = 1;
@@ -367,12 +408,24 @@ void modulo3_ex8() {
     if (modo != 0 && millis_custom() - last_update >= 400) {
         last_update = millis_custom();
         
-        PORTB &= 0xF8;
+        CLR_LED1();
+        CLR_LED2();
+        CLR_LED3();
         
         if (modo == 1) {
-            SET_BIT(PORTB, LED1 + index);
+            // Sequência 1-2-3
+            switch (index) {
+                case 0: SET_LED1(); break;
+                case 1: SET_LED2(); break;
+                case 2: SET_LED3(); break;
+            }
         } else {
-            SET_BIT(PORTB, LED1 + (2 - index));
+            // Sequência 3-2-1
+            switch (index) {
+                case 0: SET_LED3(); break;
+                case 1: SET_LED2(); break;
+                case 2: SET_LED1(); break;
+            }
         }
         
         index++;
@@ -385,13 +438,25 @@ void modulo3_ex8() {
 // ================================================================================
 void modulo3_ex9() {
     if (btn_state[0] && btn_state[2]) {
-        PORTB &= 0xF0;
+        CLR_LED1();
+        CLR_LED2();
+        CLR_LED3();
+        CLR_LED4();
     } else if (btn_state[0]) {
-        PORTB = (PORTB & 0xF0) | 0x0F;
+        SET_LED1();
+        SET_LED2();
+        SET_LED3();
+        SET_LED4();
     } else if (btn_state[1]) {
-        PORTB = (PORTB & 0xF0) | 0x03;
+        SET_LED1();
+        SET_LED2();
+        CLR_LED3();
+        CLR_LED4();
     } else if (btn_state[2]) {
-        PORTB = (PORTB & 0xF0) | 0x0C;
+        CLR_LED1();
+        CLR_LED2();
+        SET_LED3();
+        SET_LED4();
     }
 }
 
@@ -420,28 +485,30 @@ void modulo3_ex10() {
     // Atualiza LEDs
     switch (display_value) {
         case 1:
-            SET_BIT(PORTB, LED1);
-            CLR_BIT(PORTB, LED2);
+            SET_LED1();
+            CLR_LED2();
             if (millis_custom() - last_blink >= 300) {
                 last_blink = millis_custom();
-                TGL_BIT(PORTB, LED3);
+                TGL_LED3();
             }
             break;
         case 2:
-            CLR_BIT(PORTB, LED1);
-            SET_BIT(PORTB, LED2);
-            SET_BIT(PORTB, LED3);
+            CLR_LED1();
+            SET_LED2();
+            SET_LED3();
             break;
         case 3:
-            CLR_BIT(PORTB, LED3);
+            CLR_LED3();
             if (millis_custom() - last_blink >= 300) {
                 last_blink = millis_custom();
-                TGL_BIT(PORTB, LED1);
-                TGL_BIT(PORTB, LED2);
+                TGL_LED1();
+                TGL_LED2();
             }
             break;
         default:
-            PORTB &= 0xF8;
+            CLR_LED1();
+            CLR_LED2();
+            CLR_LED3();
             break;
     }
 }
@@ -450,9 +517,17 @@ void modulo3_ex10() {
 // SETUP E LOOP
 // ================================================================================
 void setup() {
-    // Configura PORTB como saída (LEDs)
-    DDRB = 0xFF;
-    PORTB = 0x00;
+    // Configura PORTB como saída (LED3 e LED4)
+    SET_BIT(DDRB, LED3);
+    SET_BIT(DDRB, LED4);
+    CLR_BIT(PORTB, LED3);
+    CLR_BIT(PORTB, LED4);
+    
+    // Configura PORTD como saída (LED1 e LED2)
+    SET_BIT(DDRD, LED1);
+    SET_BIT(DDRD, LED2);
+    CLR_BIT(PORTD, LED1);
+    CLR_BIT(PORTD, LED2);
     
     // Configura botões em PORTC como entrada com pull-up
     CLR_BIT(DDRC, BTN1);
