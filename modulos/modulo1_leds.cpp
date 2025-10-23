@@ -1,0 +1,379 @@
+/*
+ * ================================================================================
+ * MÓDULO 1 - CONTROLE DE LEDs (BARGRAPH)
+ * ================================================================================
+ * Microcontrolador: ATmega328P @ 16MHz
+ * 
+ * DESCRIÇÃO:
+ * 9 exercícios de controle de LEDs usando manipulação direta de registradores AVR:
+ * - Ex 1.1: Piscar LED 3x rápido, 3x devagar
+ * - Ex 1.2a-i: Diversos padrões com bargraph de 8 LEDs
+ * 
+ * CONEXÕES DE HARDWARE:
+ * - LED_TESTE: PC5 com resistor de 220Ω
+ * - BARGRAPH (6 LEDs disponíveis):
+ *   * PD0 (pino 30) → LED0 com resistor de 220Ω
+ *   * PD1 (pino 31) → LED1 com resistor de 220Ω
+ *   * PD2 (pino 32) → LED2 com resistor de 220Ω
+ *   * PD3 (pino 1)  → LED3 com resistor de 220Ω
+ *   * PD4 (pino 2)  → LED4 com resistor de 220Ω
+ *   * PD7 (pino 13) → LED7 com resistor de 220Ω
+ *   ⚠️  PD5 e PD6 são RESERVADOS para o CRISTAL - NÃO usar!
+ * 
+ * SELEÇÃO DE EXERCÍCIO:
+ * Altere a variável 'exercicio_atual' na função setup() para escolher (0-9)
+ * ================================================================================
+ */
+
+#include <Arduino.h> 
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+// ================================================================================
+// MACROS PARA MANIPULAÇÃO DE BITS
+// ================================================================================
+#define SET_BIT(REG, BIT)    (REG |= (1 << BIT))
+#define CLR_BIT(REG, BIT)    (REG &= ~(1 << BIT))
+#define TGL_BIT(REG, BIT)    (REG ^= (1 << BIT))
+#define READ_BIT(REG, BIT)   ((REG >> BIT) & 1)
+
+// ================================================================================
+// DEFINIÇÕES DE PINOS
+// ================================================================================
+#define LED_TESTE   PC5    // LED de teste individual
+
+// BARGRAPH - Mapeamento considerando PD5/PD6 reservados para cristal
+// Disponíveis: PD0, PD1, PD2, PD3, PD4, PD7 (6 LEDs)
+// Para efeitos visuais, usamos máscara para evitar PD5/PD6
+
+// ================================================================================
+// VARIÁVEIS GLOBAIS
+// ================================================================================
+volatile unsigned long timer_millis = 0;
+uint8_t exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, etc.
+
+// ================================================================================
+// SISTEMA DE TIMER (Timer1 - 1ms)
+// ================================================================================
+void timer1_init() {
+    cli();
+    TCCR1A = 0;
+    TCCR1B = 0;
+    TCNT1 = 0;
+    OCR1A = 249;  // (16MHz / 64 / 1000Hz) - 1
+    SET_BIT(TCCR1B, WGM12);  // Modo CTC
+    SET_BIT(TCCR1B, CS11);   // Prescaler 64
+    SET_BIT(TCCR1B, CS10);
+    SET_BIT(TIMSK1, OCIE1A); // Interrupção
+    sei();
+}
+
+ISR(TIMER1_COMPA_vect) {
+    timer_millis++;
+}
+
+unsigned long millis_custom() {
+    unsigned long m;
+    cli();
+    m = timer_millis;
+    sei();
+    return m;
+}
+
+void delay_ms(unsigned long ms) {
+    unsigned long start = millis_custom();
+    while ((millis_custom() - start) < ms);
+}
+
+// ================================================================================
+// FUNÇÃO AUXILIAR: Escrever em PORTD evitando PD5/PD6
+// ================================================================================
+void write_portd_safe(uint8_t value) {
+    // Preserva PD5 e PD6, escreve nos outros bits
+    uint8_t current = PORTD & 0b01100000;  // Mantém PD5 e PD6
+    PORTD = current | (value & 0b10011111); // Aplica valor nos outros bits
+}
+
+// ================================================================================
+// EXERCÍCIO 1.1 - Piscar LED (PC5)
+// 3x rápido (200ms) e 3x devagar (500ms), repetir eternamente
+// ================================================================================
+void modulo1_ex1() {
+    static unsigned long last_toggle = 0;
+    static uint8_t fase = 0;  // 0-5: rápido, 6-11: devagar
+    unsigned long intervalo = (fase < 6) ? 200 : 500;
+    
+    if (millis_custom() - last_toggle >= intervalo) {
+        last_toggle = millis_custom();
+        TGL_BIT(PORTC, LED_TESTE);
+        fase++;
+        if (fase >= 12) fase = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2a - Bargraph: Acender da direita para esquerda
+// Mantém acesos, apaga todos, repete
+// ================================================================================
+void modulo1_ex2a() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t leds = 0;
+    
+    if (millis_custom() - last_update >= 200) {
+        last_update = millis_custom();
+        
+        if (step < 8) {
+            SET_BIT(leds, step);
+            write_portd_safe(leds);
+        } else if (step == 8) {
+            delay_ms(500);
+        } else if (step == 9) {
+            leds = 0;
+            write_portd_safe(0);
+            delay_ms(300);
+        }
+        
+        step++;
+        if (step >= 10) step = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2b - Bargraph: Acender da esquerda para direita
+// Mantém acesos, apaga todos, repete
+// ================================================================================
+void modulo1_ex2b() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t leds = 0;
+    
+    if (millis_custom() - last_update >= 200) {
+        last_update = millis_custom();
+        
+        if (step < 8) {
+            SET_BIT(leds, (7 - step));
+            write_portd_safe(leds);
+        } else if (step == 8) {
+            delay_ms(500);
+        } else if (step == 9) {
+            leds = 0;
+            write_portd_safe(0);
+            delay_ms(300);
+        }
+        
+        step++;
+        if (step >= 10) step = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2c - Bargraph: Apenas 1 LED aceso por vez
+// Da direita para esquerda
+// ================================================================================
+void modulo1_ex2c() {
+    static unsigned long last_update = 0;
+    static uint8_t position = 0;
+    
+    if (millis_custom() - last_update >= 150) {
+        last_update = millis_custom();
+        write_portd_safe(1 << position);
+        position++;
+        if (position >= 8) position = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2d - Bargraph: Ping-pong
+// 1 LED aceso por vez, vai e volta
+// ================================================================================
+void modulo1_ex2d() {
+    static unsigned long last_update = 0;
+    static uint8_t position = 0;
+    static int8_t direction = 1;
+    
+    if (millis_custom() - last_update >= 100) {
+        last_update = millis_custom();
+        write_portd_safe(1 << position);
+        
+        position += direction;
+        
+        if (position >= 7 && direction > 0) {
+            direction = -1;
+        } else if (position <= 0 && direction < 0) {
+            direction = 1;
+        }
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2e - Bargraph: Todos acesos, apagar 1 por vez em vai e volta
+// ================================================================================
+void modulo1_ex2e() {
+    static unsigned long last_update = 0;
+    static uint8_t position = 0;
+    static int8_t direction = 1;
+    static uint8_t leds = 0xFF;
+    
+    if (millis_custom() - last_update >= 150) {
+        last_update = millis_custom();
+        
+        CLR_BIT(leds, position);
+        write_portd_safe(leds);
+        
+        position += direction;
+        
+        if (position >= 7 && direction > 0) {
+            direction = -1;
+        } else if (position <= 0 && direction < 0) {
+            direction = 1;
+            leds = 0xFF;  // Reacende todos
+        }
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2f - Bargraph: Esquerda para direita mantendo acesos
+// Piscar todos 5x, apagar todos
+// ================================================================================
+void modulo1_ex2f() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t blink_counter = 0;
+    static uint8_t leds = 0;
+    
+    if (step < 8) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            SET_BIT(leds, (7 - step));
+            write_portd_safe(leds);
+            step++;
+        }
+    } else if (step < 18) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            if (leds == 0xFF) {
+                leds = 0x00;
+            } else {
+                leds = 0xFF;
+            }
+            write_portd_safe(leds);
+            blink_counter++;
+            if (blink_counter >= 10) {
+                step = 18;
+                blink_counter = 0;
+            } else {
+                step++;
+            }
+        }
+    } else {
+        write_portd_safe(0);
+        delay_ms(500);
+        step = 0;
+        leds = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2g - Bargraph: Direita para esquerda mantendo acesos, apagar
+// Depois esquerda para direita
+// ================================================================================
+void modulo1_ex2g() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t leds = 0;
+    
+    if (step < 8) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            SET_BIT(leds, step);
+            write_portd_safe(leds);
+            step++;
+        }
+    } else if (step == 8) {
+        if (millis_custom() - last_update >= 500) {
+            last_update = millis_custom();
+            leds = 0;
+            write_portd_safe(0);
+            step++;
+        }
+    } else if (step < 17) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            SET_BIT(leds, (7 - (step - 9)));
+            write_portd_safe(leds);
+            step++;
+        }
+    } else {
+        delay_ms(500);
+        leds = 0;
+        write_portd_safe(0);
+        delay_ms(300);
+        step = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2h - Bargraph: Contagem binária crescente 0-255
+// ================================================================================
+void modulo1_ex2h() {
+    static unsigned long last_update = 0;
+    static uint8_t counter = 0;
+    
+    if (millis_custom() - last_update >= 250) {
+        last_update = millis_custom();
+        write_portd_safe(counter);
+        counter++;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2i - Bargraph: Contagem binária decrescente 255-0
+// ================================================================================
+void modulo1_ex2i() {
+    static unsigned long last_update = 0;
+    static uint8_t counter = 255;
+    
+    if (millis_custom() - last_update >= 250) {
+        last_update = millis_custom();
+        write_portd_safe(counter);
+        counter--;
+    }
+}
+
+// ================================================================================
+// SETUP E LOOP
+// ================================================================================
+void setup() {
+    // Configura PORTD (LEDs) - evitando PD5 e PD6
+    DDRD = 0b10011111;  // PD0-PD4 e PD7 como saída
+    write_portd_safe(0);
+    
+    // Configura LED_TESTE em PC5
+    SET_BIT(DDRC, LED_TESTE);
+    CLR_BIT(PORTC, LED_TESTE);
+    
+    // Inicializa Timer1
+    timer1_init();
+    
+    // ========================================
+    // SELECIONE O EXERCÍCIO AQUI (0-9):
+    // ========================================
+    exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, ..., 9=Ex1.2i
+}
+
+void loop() {
+    switch (exercicio_atual) {
+        case 0:  modulo1_ex1();   break;  // 1.1 - Piscar LED 3x rápido/devagar
+        case 1:  modulo1_ex2a();  break;  // 1.2a - Direita→Esquerda mantendo
+        case 2:  modulo1_ex2b();  break;  // 1.2b - Esquerda→Direita mantendo
+        case 3:  modulo1_ex2c();  break;  // 1.2c - 1 LED por vez D→E
+        case 4:  modulo1_ex2d();  break;  // 1.2d - Ping-pong
+        case 5:  modulo1_ex2e();  break;  // 1.2e - Apagar 1 por vez vai-volta
+        case 6:  modulo1_ex2f();  break;  // 1.2f - E→D mantendo, piscar 5x
+        case 7:  modulo1_ex2g();  break;  // 1.2g - D→E, apagar, E→D
+        case 8:  modulo1_ex2h();  break;  // 1.2h - Contagem binária 0-255
+        case 9:  modulo1_ex2i();  break;  // 1.2i - Contagem binária 255-0
+        default: modulo1_ex1();   break;
+    }
+}
