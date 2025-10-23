@@ -105,86 +105,103 @@ void modulo1_ex1() {
 
 // ================================================================================
 // EXERCÍCIO 1.2a - Bargraph: Acender da direita para esquerda
-// Mantém acesos, apaga todos, repete
+// Mantém acesos, apaga todos, repete (2x)
 // ================================================================================
 void modulo1_ex2a() {
     static unsigned long last_update = 0;
     static uint8_t step = 0;
     static uint8_t leds = 0;
+    static uint8_t repeats = 0;
     
-    if (millis_custom() - last_update >= 200) {
+    if (millis_custom() - last_update >= 100) {
         last_update = millis_custom();
         
         if (step < 8) {
             SET_BIT(leds, step);
             PORTB = leds;
+            step++;
         } else if (step == 8) {
-            delay_ms(500);
+            step++;
         } else if (step == 9) {
             leds = 0;
             PORTB = 0;
-            delay_ms(300);
+            step = 0;
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                step = 10;  // Força saída
+            }
         }
-        
-        step++;
-        if (step >= 10) step = 0;
     }
 }
 
 // ================================================================================
 // EXERCÍCIO 1.2b - Bargraph: Acender da esquerda para direita
-// Mantém acesos, apaga todos, repete
+// Mantém acesos, apaga todos, repete (2x)
 // ================================================================================
 void modulo1_ex2b() {
     static unsigned long last_update = 0;
     static uint8_t step = 0;
     static uint8_t leds = 0;
+    static uint8_t repeats = 0;
     
-    if (millis_custom() - last_update >= 200) {
+    if (millis_custom() - last_update >= 100) {
         last_update = millis_custom();
         
         if (step < 8) {
             SET_BIT(leds, (7 - step));
             PORTB = leds;
+            step++;
         } else if (step == 8) {
-            delay_ms(500);
+            step++;
         } else if (step == 9) {
             leds = 0;
             PORTB = 0;
-            delay_ms(300);
+            step = 0;
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                step = 10;  // Força saída
+            }
         }
-        
-        step++;
-        if (step >= 10) step = 0;
     }
 }
 
 // ================================================================================
 // EXERCÍCIO 1.2c - Bargraph: Apenas 1 LED aceso por vez
-// Da direita para esquerda
+// Da direita para esquerda (2x)
 // ================================================================================
 void modulo1_ex2c() {
     static unsigned long last_update = 0;
     static uint8_t position = 0;
+    static uint8_t repeats = 0;
     
-    if (millis_custom() - last_update >= 150) {
+    if (millis_custom() - last_update >= 75) {
         last_update = millis_custom();
         PORTB = 1 << position;
         position++;
-        if (position >= 8) position = 0;
+        if (position >= 8) {
+            position = 0;
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                PORTB = 0;
+            }
+        }
     }
 }
 
 // ================================================================================
 // EXERCÍCIO 1.2d - Bargraph: Ping-pong
-// 1 LED aceso por vez, vai e volta
+// 1 LED aceso por vez, vai e volta (2x)
 // ================================================================================
 void modulo1_ex2d() {
     static unsigned long last_update = 0;
     static uint8_t position = 0;
     static int8_t direction = 1;
+    static uint8_t repeats = 0;
     
-    if (millis_custom() - last_update >= 100) {
+    if (millis_custom() - last_update >= 75) {
         last_update = millis_custom();
         PORTB = 1 << position;
         
@@ -194,20 +211,33 @@ void modulo1_ex2d() {
             direction = -1;
         } else if (position <= 0 && direction < 0) {
             direction = 1;
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                PORTB = 0;
+            }
         }
     }
 }
 
 // ================================================================================
-// EXERCÍCIO 1.2e - Bargraph: Todos acesos, apagar 1 por vez em vai e volta
+// EXERCÍCIO 1.2e - Bargraph: Todos acesos, apagar 1 por vez em vai e volta (2x)
 // ================================================================================
 void modulo1_ex2e() {
     static unsigned long last_update = 0;
     static uint8_t position = 0;
     static int8_t direction = 1;
     static uint8_t leds = 0xFF;
+    static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
     
-    if (millis_custom() - last_update >= 150) {
+    // Inicializa todos os LEDs acesos
+    if (!initialized) {
+        PORTB = 0xFF;
+        initialized = 1;
+    }
+    
+    if (millis_custom() - last_update >= 75) {
         last_update = millis_custom();
         
         CLR_BIT(leds, position);
@@ -220,13 +250,19 @@ void modulo1_ex2e() {
         } else if (position <= 0 && direction < 0) {
             direction = 1;
             leds = 0xFF;  // Reacende todos
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                initialized = 0;
+                PORTB = 0;
+            }
         }
     }
 }
 
 // ================================================================================
 // EXERCÍCIO 1.2f - Bargraph: Esquerda para direita mantendo acesos
-// Piscar todos 5x, apagar todos
+// Piscar todos 2x, apagar todos
 // ================================================================================
 void modulo1_ex2f() {
     static unsigned long last_update = 0;
@@ -235,14 +271,14 @@ void modulo1_ex2f() {
     static uint8_t leds = 0;
     
     if (step < 8) {
-        if (millis_custom() - last_update >= 200) {
+        if (millis_custom() - last_update >= 100) {
             last_update = millis_custom();
             SET_BIT(leds, (7 - step));
             PORTB = leds;
             step++;
         }
-    } else if (step < 18) {
-        if (millis_custom() - last_update >= 200) {
+    } else if (step < 14) {
+        if (millis_custom() - last_update >= 150) {
             last_update = millis_custom();
             if (leds == 0xFF) {
                 leds = 0x00;
@@ -251,8 +287,8 @@ void modulo1_ex2f() {
             }
             PORTB = leds;
             blink_counter++;
-            if (blink_counter >= 10) {
-                step = 18;
+            if (blink_counter >= 4) {
+                step = 14;
                 blink_counter = 0;
             } else {
                 step++;
@@ -260,7 +296,6 @@ void modulo1_ex2f() {
         }
     } else {
         PORTB = 0;
-        delay_ms(500);
         step = 0;
         leds = 0;
     }
@@ -268,68 +303,98 @@ void modulo1_ex2f() {
 
 // ================================================================================
 // EXERCÍCIO 1.2g - Bargraph: Direita para esquerda mantendo acesos, apagar
-// Depois esquerda para direita
+// Depois esquerda para direita (2x)
 // ================================================================================
 void modulo1_ex2g() {
     static unsigned long last_update = 0;
     static uint8_t step = 0;
     static uint8_t leds = 0;
+    static uint8_t repeats = 0;
     
     if (step < 8) {
-        if (millis_custom() - last_update >= 200) {
+        if (millis_custom() - last_update >= 100) {
             last_update = millis_custom();
             SET_BIT(leds, step);
             PORTB = leds;
             step++;
         }
     } else if (step == 8) {
-        if (millis_custom() - last_update >= 500) {
+        if (millis_custom() - last_update >= 200) {
             last_update = millis_custom();
             leds = 0;
             PORTB = 0;
             step++;
         }
     } else if (step < 17) {
-        if (millis_custom() - last_update >= 200) {
+        if (millis_custom() - last_update >= 100) {
             last_update = millis_custom();
             SET_BIT(leds, (7 - (step - 9)));
             PORTB = leds;
             step++;
         }
     } else {
-        delay_ms(500);
         leds = 0;
         PORTB = 0;
-        delay_ms(300);
-        step = 0;
+        repeats++;
+        if (repeats >= 2) {
+            repeats = 0;
+            step = 100;  // Força saída
+        } else {
+            step = 0;
+        }
     }
 }
 
 // ================================================================================
-// EXERCÍCIO 1.2h - Bargraph: Contagem binária crescente 0-255
+// EXERCÍCIO 1.2h - Bargraph: Contagem binária crescente 0-255 (2x)
 // ================================================================================
 void modulo1_ex2h() {
     static unsigned long last_update = 0;
     static uint8_t counter = 0;
+    static uint8_t repeats = 0;
     
-    if (millis_custom() - last_update >= 250) {
+    if (millis_custom() - last_update >= 150) {
         last_update = millis_custom();
         PORTB = counter;
         counter++;
+        if (counter == 0) {  // Transbordou (passou de 255)
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                PORTB = 0;
+            }
+        }
     }
 }
 
 // ================================================================================
-// EXERCÍCIO 1.2i - Bargraph: Contagem binária decrescente 255-0
+// EXERCÍCIO 1.2i - Bargraph: Contagem binária decrescente 255-0 (2x)
 // ================================================================================
 void modulo1_ex2i() {
     static unsigned long last_update = 0;
     static uint8_t counter = 255;
+    static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
     
-    if (millis_custom() - last_update >= 250) {
+    if (!initialized) {
+        PORTB = 255;
+        initialized = 1;
+    }
+    
+    if (millis_custom() - last_update >= 150) {
         last_update = millis_custom();
         PORTB = counter;
         counter--;
+        if (counter == 255) {  // Transbordou (passou de 0)
+            repeats++;
+            if (repeats >= 2) {
+                repeats = 0;
+                initialized = 0;
+                PORTB = 0;
+            } else {
+                counter = 255;
+            }
+        }
     }
 }
 
