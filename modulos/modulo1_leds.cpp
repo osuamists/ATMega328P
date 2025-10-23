@@ -51,7 +51,7 @@
 volatile unsigned long timer_millis = 0;
 uint8_t exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, etc.
 unsigned long exercise_start_time = 0;
-unsigned long exercise_duration = 5000;  // 5 segundos por exercício
+unsigned long exercise_duration = 2000;  // 2 segundos por exercício
 
 // ================================================================================
 // SISTEMA DE TIMER (Timer1 - 1ms)
@@ -104,7 +104,7 @@ void modulo1_ex1() {
 }
 
 // ================================================================================
-// EXERCÍCIO 1.2a - Bargraph: Acender da direita para esquerda
+// EXERCÍCIO 1.2a - Bargraph: Acender da esquerda para direita
 // Mantém acesos, apaga todos, repete (2x)
 // ================================================================================
 void modulo1_ex2a() {
@@ -136,7 +136,7 @@ void modulo1_ex2a() {
 }
 
 // ================================================================================
-// EXERCÍCIO 1.2b - Bargraph: Acender da esquerda para direita
+// EXERCÍCIO 1.2b - Bargraph: Acender da direita para esquerda
 // Mantém acesos, apaga todos, repete (2x)
 // ================================================================================
 void modulo1_ex2b() {
@@ -169,7 +169,7 @@ void modulo1_ex2b() {
 
 // ================================================================================
 // EXERCÍCIO 1.2c - Bargraph: Apenas 1 LED aceso por vez
-// Da direita para esquerda (2x)
+// Da esquerda para a direita (2x)
 // ================================================================================
 void modulo1_ex2c() {
     static unsigned long last_update = 0;
@@ -230,31 +230,55 @@ void modulo1_ex2e() {
     static uint8_t leds = 0xFF;
     static uint8_t repeats = 0;
     static uint8_t initialized = 0;
+    static uint8_t show_all_time = 0;  // Contador para mostrar todos acesos
     
     // Inicializa todos os LEDs acesos
     if (!initialized) {
+        leds = 0xFF;
         PORTB = 0xFF;
+        position = 0;
+        direction = 1;
         initialized = 1;
+        show_all_time = 150;  // Mostra todos acesos por 150ms
     }
     
     if (millis_custom() - last_update >= 75) {
         last_update = millis_custom();
         
-        CLR_BIT(leds, position);
-        PORTB = leds;
-        
-        position += direction;
-        
-        if (position >= 7 && direction > 0) {
-            direction = -1;
-        } else if (position <= 0 && direction < 0) {
-            direction = 1;
-            leds = 0xFF;  // Reacende todos
-            repeats++;
-            if (repeats >= 2) {
-                repeats = 0;
-                initialized = 0;
-                PORTB = 0;
+        if (show_all_time > 0) {
+            // Mostra todos os LEDs acesos no início
+            show_all_time -= 75;
+            PORTB = 0xFF;
+        } else {
+            // Começa a apagar
+            CLR_BIT(leds, position);
+            PORTB = leds;
+            
+            // Move para o próximo LED
+            if (direction > 0) {
+                if (position < 7) {
+                    position++;
+                } else {
+                    // Chegou ao final, volta
+                    direction = -1;
+                    position--;
+                }
+            } else {
+                if (position > 0) {
+                    position--;
+                } else {
+                    // Voltou ao início, próximo ciclo
+                    direction = 1;
+                    leds = 0xFF;  // Reacende todos
+                    repeats++;
+                    show_all_time = 150;  // Mostra todos acesos novamente
+                    
+                    if (repeats >= 2) {
+                        repeats = 0;
+                        initialized = 0;
+                        PORTB = 0;
+                    }
+                }
             }
         }
     }
