@@ -21,11 +21,8 @@
  *   * PB6 (pino 7)  → LED6 com resistor de 220Ω
  *   * PB7 (pino 8)  → LED7 com resistor de 220Ω
  *   ✅ PORTD livre - PD5/PD6 reservados para o cristal de 16MHz
- * 
- * SELEÇÃO DE EXERCÍCIO:
- * Altere a variável 'exercicio_atual' na função setup() para escolher (0-9)
- * ================================================================================
- */
+8*/
+
 
 #include <Arduino.h> 
 #include <avr/io.h>
@@ -53,6 +50,8 @@
 // ================================================================================
 volatile unsigned long timer_millis = 0;
 uint8_t exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, etc.
+unsigned long exercise_start_time = 0;
+unsigned long exercise_duration = 5000;  // 5 segundos por exercício
 
 // ================================================================================
 // SISTEMA DE TIMER (Timer1 - 1ms)
@@ -352,10 +351,20 @@ void setup() {
     // ========================================
     // SELECIONE O EXERCÍCIO AQUI (0-9):
     // ========================================
-    exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, ..., 9=Ex1.2i
+    exercicio_atual = 1;  // Começa em 1.2a
+    exercise_start_time = millis_custom();
 }
 
 void loop() {
+    // Verifica se tempo do exercício atual expirou
+    if (millis_custom() - exercise_start_time >= exercise_duration) {
+        exercicio_atual++;
+        if (exercicio_atual > 9) exercicio_atual = 1;  // Volta para 1.2a após 1.2i
+        exercise_start_time = millis_custom();
+        PORTB = 0;  // Apaga todos os LEDs na transição
+        delay_ms(500);  // Pausa entre exercícios
+    }
+    
     switch (exercicio_atual) {
         case 0:  modulo1_ex1();   break;  // 1.1 - Piscar LED 3x rápido/devagar
         case 1:  modulo1_ex2a();  break;  // 1.2a - Direita→Esquerda mantendo
