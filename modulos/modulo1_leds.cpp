@@ -11,14 +11,16 @@
  * 
  * CONEXÕES DE HARDWARE:
  * - LED_TESTE: PC5 com resistor de 220Ω
- * - BARGRAPH (6 LEDs disponíveis):
- *   * PD0 (pino 30) → LED0 com resistor de 220Ω
- *   * PD1 (pino 31) → LED1 com resistor de 220Ω
- *   * PD2 (pino 32) → LED2 com resistor de 220Ω
- *   * PD3 (pino 1)  → LED3 com resistor de 220Ω
- *   * PD4 (pino 2)  → LED4 com resistor de 220Ω
- *   * PD7 (pino 13) → LED7 com resistor de 220Ω
- *   ⚠️  PD5 e PD6 são RESERVADOS para o CRISTAL - NÃO usar!
+ * - BARGRAPH (8 LEDs completos em PORTB):
+ *   * PB0 (pino 12) → LED0 com resistor de 220Ω
+ *   * PB1 (pino 13) → LED1 com resistor de 220Ω
+ *   * PB2 (pino 14) → LED2 com resistor de 220Ω
+ *   * PB3 (pino 15) → LED3 com resistor de 220Ω
+ *   * PB4 (pino 16) → LED4 com resistor de 220Ω
+ *   * PB5 (pino 17) → LED5 com resistor de 220Ω
+ *   * PB6 (pino 7)  → LED6 com resistor de 220Ω
+ *   * PB7 (pino 8)  → LED7 com resistor de 220Ω
+ *   ✅ PORTD livre - PD5/PD6 reservados para o cristal de 16MHz
  * 
  * SELEÇÃO DE EXERCÍCIO:
  * Altere a variável 'exercicio_atual' na função setup() para escolher (0-9)
@@ -42,9 +44,9 @@
 // ================================================================================
 #define LED_TESTE   PC5    // LED de teste individual
 
-// BARGRAPH - Mapeamento considerando PD5/PD6 reservados para cristal
-// Disponíveis: PD0, PD1, PD2, PD3, PD4, PD7 (6 LEDs)
-// Para efeitos visuais, usamos máscara para evitar PD5/PD6
+// BARGRAPH - Usando PORTB completo (8 LEDs)
+// PORTB: PB0-PB7 = 8 LEDs para bargraph
+// PORTD: Livre, PD5/PD6 reservados para cristal de 16MHz
 
 // ================================================================================
 // VARIÁVEIS GLOBAIS
@@ -86,15 +88,6 @@ void delay_ms(unsigned long ms) {
 }
 
 // ================================================================================
-// FUNÇÃO AUXILIAR: Escrever em PORTD evitando PD5/PD6
-// ================================================================================
-void write_portd_safe(uint8_t value) {
-    // Preserva PD5 e PD6, escreve nos outros bits
-    uint8_t current = PORTD & 0b01100000;  // Mantém PD5 e PD6
-    PORTD = current | (value & 0b10011111); // Aplica valor nos outros bits
-}
-
-// ================================================================================
 // EXERCÍCIO 1.1 - Piscar LED (PC5)
 // 3x rápido (200ms) e 3x devagar (500ms), repetir eternamente
 // ================================================================================
@@ -125,12 +118,12 @@ void modulo1_ex2a() {
         
         if (step < 8) {
             SET_BIT(leds, step);
-            write_portd_safe(leds);
+            PORTB = leds;
         } else if (step == 8) {
             delay_ms(500);
         } else if (step == 9) {
             leds = 0;
-            write_portd_safe(0);
+            PORTB = 0;
             delay_ms(300);
         }
         
@@ -153,12 +146,12 @@ void modulo1_ex2b() {
         
         if (step < 8) {
             SET_BIT(leds, (7 - step));
-            write_portd_safe(leds);
+            PORTB = leds;
         } else if (step == 8) {
             delay_ms(500);
         } else if (step == 9) {
             leds = 0;
-            write_portd_safe(0);
+            PORTB = 0;
             delay_ms(300);
         }
         
@@ -177,7 +170,7 @@ void modulo1_ex2c() {
     
     if (millis_custom() - last_update >= 150) {
         last_update = millis_custom();
-        write_portd_safe(1 << position);
+        PORTB = 1 << position;
         position++;
         if (position >= 8) position = 0;
     }
@@ -194,7 +187,7 @@ void modulo1_ex2d() {
     
     if (millis_custom() - last_update >= 100) {
         last_update = millis_custom();
-        write_portd_safe(1 << position);
+        PORTB = 1 << position;
         
         position += direction;
         
@@ -219,7 +212,7 @@ void modulo1_ex2e() {
         last_update = millis_custom();
         
         CLR_BIT(leds, position);
-        write_portd_safe(leds);
+        PORTB = leds;
         
         position += direction;
         
@@ -246,7 +239,7 @@ void modulo1_ex2f() {
         if (millis_custom() - last_update >= 200) {
             last_update = millis_custom();
             SET_BIT(leds, (7 - step));
-            write_portd_safe(leds);
+            PORTB = leds;
             step++;
         }
     } else if (step < 18) {
@@ -257,7 +250,7 @@ void modulo1_ex2f() {
             } else {
                 leds = 0xFF;
             }
-            write_portd_safe(leds);
+            PORTB = leds;
             blink_counter++;
             if (blink_counter >= 10) {
                 step = 18;
@@ -267,7 +260,7 @@ void modulo1_ex2f() {
             }
         }
     } else {
-        write_portd_safe(0);
+        PORTB = 0;
         delay_ms(500);
         step = 0;
         leds = 0;
@@ -287,27 +280,27 @@ void modulo1_ex2g() {
         if (millis_custom() - last_update >= 200) {
             last_update = millis_custom();
             SET_BIT(leds, step);
-            write_portd_safe(leds);
+            PORTB = leds;
             step++;
         }
     } else if (step == 8) {
         if (millis_custom() - last_update >= 500) {
             last_update = millis_custom();
             leds = 0;
-            write_portd_safe(0);
+            PORTB = 0;
             step++;
         }
     } else if (step < 17) {
         if (millis_custom() - last_update >= 200) {
             last_update = millis_custom();
             SET_BIT(leds, (7 - (step - 9)));
-            write_portd_safe(leds);
+            PORTB = leds;
             step++;
         }
     } else {
         delay_ms(500);
         leds = 0;
-        write_portd_safe(0);
+        PORTB = 0;
         delay_ms(300);
         step = 0;
     }
@@ -322,7 +315,7 @@ void modulo1_ex2h() {
     
     if (millis_custom() - last_update >= 250) {
         last_update = millis_custom();
-        write_portd_safe(counter);
+        PORTB = counter;
         counter++;
     }
 }
@@ -336,7 +329,7 @@ void modulo1_ex2i() {
     
     if (millis_custom() - last_update >= 250) {
         last_update = millis_custom();
-        write_portd_safe(counter);
+        PORTB = counter;
         counter--;
     }
 }
@@ -345,9 +338,9 @@ void modulo1_ex2i() {
 // SETUP E LOOP
 // ================================================================================
 void setup() {
-    // Configura PORTD (LEDs) - evitando PD5 e PD6
-    DDRD = 0b10011111;  // PD0-PD4 e PD7 como saída
-    write_portd_safe(0);
+    // Configura PORTB (LEDs do bargraph) como saída
+    DDRB = 0xFF;  // PB0-PB7 como saída
+    PORTB = 0;
     
     // Configura LED_TESTE em PC5
     SET_BIT(DDRC, LED_TESTE);

@@ -1,34 +1,29 @@
 /*
  * ================================================================================
- * MÓDULO 2 - DISPLAYS DE 7 SEGMENTOS
+ * MÓDULO 1 - CONTROLE DE LEDs (BARGRAPH)
  * ================================================================================
  * Microcontrolador: ATmega328P @ 16MHz
  * 
  * DESCRIÇÃO:
- * Controle de 2 displays de 7 segmentos multiplexados
- * - Display 1: Contagem crescente 0→F (hexadecimal)
- * - Display 2: Contagem decrescente F→0 (hexadecimal)
- * - Multiplexação a cada 5ms para evitar flickering
- * - Atualização de valores a cada 500ms
+ * 9 exercícios de controle de LEDs usando manipulação direta de registradores AVR:
+ * - Ex 1.1: Piscar LED 3x rápido, 3x devagar
+ * - Ex 1.2a-i: Diversos padrões com bargraph de 8 LEDs
  * 
  * CONEXÕES DE HARDWARE:
- * - SEGMENTOS (PORTB - catodo comum, 1=aceso):
- *   * PB0 (pino 14) → Segmento A
- *   * PB1 (pino 15) → Segmento B
- *   * PB2 (pino 16) → Segmento C
- *   * PB3 (pino 17) → Segmento D
- *   * PB4 (pino 18) → Segmento E
- *   * PB5 (pino 19) → Segmento F
- *   * PB6 (pino 9)  → Segmento G (⚠️ compartilha com XTAL1 - cuidado!)
- *   * PB7 (pino 10) → Segmento DP (⚠️ compartilha com XTAL2 - cuidado!)
+ * - LED_TESTE: PC5 com resistor de 220Ω
+ * - BARGRAPH (8 LEDs completos em PORTB):
+ *   * PB0 (pino 12) → LED0 com resistor de 220Ω
+ *   * PB1 (pino 13) → LED1 com resistor de 220Ω
+ *   * PB2 (pino 14) → LED2 com resistor de 220Ω
+ *   * PB3 (pino 15) → LED3 com resistor de 220Ω
+ *   * PB4 (pino 16) → LED4 com resistor de 220Ω
+ *   * PB5 (pino 17) → LED5 com resistor de 220Ω
+ *   * PB6 (pino 7)  → LED6 com resistor de 220Ω
+ *   * PB7 (pino 8)  → LED7 com resistor de 220Ω
+ *   ✅ PORTD livre - PD5/PD6 reservados para o cristal de 16MHz
  * 
- * - SELEÇÃO DE DISPLAYS (PORTC - transistores):
- *   * PC0 (pino 23) → Seleção Display 1 (transistor NPN)
- *   * PC1 (pino 24) → Seleção Display 2 (transistor NPN)
- * 
- * NOTA: Se usar cristal externo, PB6/PB7 não estarão disponíveis!
- *       Neste caso, use displays de 7 segmentos sem os segmentos G e DP,
- *       ou mova a conexão dos segmentos para outra porta.
+ * SELEÇÃO DE EXERCÍCIO:
+ * Altere a variável 'exercicio_atual' na função setup() para escolher (0-9)
  * ================================================================================
  */
 
@@ -47,48 +42,17 @@
 // ================================================================================
 // DEFINIÇÕES DE PINOS
 // ================================================================================
-// Segmentos em PORTB
-#define SEG_A   PB0
-#define SEG_B   PB1
-#define SEG_C   PB2
-#define SEG_D   PB3
-#define SEG_E   PB4
-#define SEG_F   PB5
-#define SEG_G   PB6  // ⚠️ XTAL1 - conflito com cristal!
-#define SEG_DP  PB7  // ⚠️ XTAL2 - conflito com cristal!
+#define LED_TESTE   PC5    // LED de teste individual
 
-// Seleção de displays em PORTC
-#define SEL_DISP1   PC0
-#define SEL_DISP2   PC1
+// BARGRAPH - Usando PORTB completo (8 LEDs)
+// PORTB: PB0-PB7 = 8 LEDs para bargraph
+// PORTD: Livre, PD5/PD6 reservados para cristal de 16MHz
 
 // ================================================================================
 // VARIÁVEIS GLOBAIS
 // ================================================================================
 volatile unsigned long timer_millis = 0;
-
-// Tabela de conversão hexadecimal para 7 segmentos (catodo comum - 1=aceso)
-const uint8_t HEX_TABLE[16] = {
-    0b00111111,  // 0
-    0b00000110,  // 1
-    0b01011011,  // 2
-    0b01001111,  // 3
-    0b01100110,  // 4
-    0b01101101,  // 5
-    0b01111101,  // 6
-    0b00000111,  // 7
-    0b01111111,  // 8
-    0b01101111,  // 9
-    0b01110111,  // A
-    0b01111100,  // b
-    0b00111001,  // C
-    0b01011110,  // d
-    0b01111001,  // E
-    0b01110001   // F
-};
-
-uint8_t display1_value = 0;      // Valor display 1 (0-15)
-uint8_t display2_value = 15;     // Valor display 2 (15-0)
-uint8_t display_atual = 0;       // Display ativo (0 ou 1)
+uint8_t exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, etc.
 
 // ================================================================================
 // SISTEMA DE TIMER (Timer1 - 1ms)
@@ -118,48 +82,255 @@ unsigned long millis_custom() {
     return m;
 }
 
+void delay_ms(unsigned long ms) {
+    unsigned long start = millis_custom();
+    while ((millis_custom() - start) < ms);
+}
+
 // ================================================================================
-// FUNÇÃO DE ATUALIZAÇÃO DOS DISPLAYS
+// EXERCÍCIO 1.1 - Piscar LED (PC5)
+// 3x rápido (200ms) e 3x devagar (500ms), repetir eternamente
 // ================================================================================
-void atualizar_displays() {
-    static unsigned long last_multiplex = 0;
-    static unsigned long last_count = 0;
+void modulo1_ex1() {
+    static unsigned long last_toggle = 0;
+    static uint8_t fase = 0;  // 0-5: rápido, 6-11: devagar
+    unsigned long intervalo = (fase < 6) ? 200 : 500;
     
-    // Multiplexação a cada 5ms
-    if (millis_custom() - last_multiplex >= 5) {
-        last_multiplex = millis_custom();
+    if (millis_custom() - last_toggle >= intervalo) {
+        last_toggle = millis_custom();
+        TGL_BIT(PORTC, LED_TESTE);
+        fase++;
+        if (fase >= 12) fase = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2a - Bargraph: Acender da direita para esquerda
+// Mantém acesos, apaga todos, repete
+// ================================================================================
+void modulo1_ex2a() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t leds = 0;
+    
+    if (millis_custom() - last_update >= 200) {
+        last_update = millis_custom();
         
-        if (display_atual == 0) {
-            // Desliga display 2, atualiza segmentos, liga display 1
-            CLR_BIT(PORTC, SEL_DISP2);
-            PORTB = HEX_TABLE[display1_value];
-            SET_BIT(PORTC, SEL_DISP1);
-            display_atual = 1;
-        } else {
-            // Desliga display 1, atualiza segmentos, liga display 2
-            CLR_BIT(PORTC, SEL_DISP1);
-            PORTB = HEX_TABLE[display2_value];
-            SET_BIT(PORTC, SEL_DISP2);
-            display_atual = 0;
+        if (step < 8) {
+            SET_BIT(leds, step);
+            PORTB = leds;
+        } else if (step == 8) {
+            delay_ms(500);
+        } else if (step == 9) {
+            leds = 0;
+            PORTB = 0;
+            delay_ms(300);
+        }
+        
+        step++;
+        if (step >= 10) step = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2b - Bargraph: Acender da esquerda para direita
+// Mantém acesos, apaga todos, repete
+// ================================================================================
+void modulo1_ex2b() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t leds = 0;
+    
+    if (millis_custom() - last_update >= 200) {
+        last_update = millis_custom();
+        
+        if (step < 8) {
+            SET_BIT(leds, (7 - step));
+            PORTB = leds;
+        } else if (step == 8) {
+            delay_ms(500);
+        } else if (step == 9) {
+            leds = 0;
+            PORTB = 0;
+            delay_ms(300);
+        }
+        
+        step++;
+        if (step >= 10) step = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2c - Bargraph: Apenas 1 LED aceso por vez
+// Da direita para esquerda
+// ================================================================================
+void modulo1_ex2c() {
+    static unsigned long last_update = 0;
+    static uint8_t position = 0;
+    
+    if (millis_custom() - last_update >= 150) {
+        last_update = millis_custom();
+        PORTB = 1 << position;
+        position++;
+        if (position >= 8) position = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2d - Bargraph: Ping-pong
+// 1 LED aceso por vez, vai e volta
+// ================================================================================
+void modulo1_ex2d() {
+    static unsigned long last_update = 0;
+    static uint8_t position = 0;
+    static int8_t direction = 1;
+    
+    if (millis_custom() - last_update >= 100) {
+        last_update = millis_custom();
+        PORTB = 1 << position;
+        
+        position += direction;
+        
+        if (position >= 7 && direction > 0) {
+            direction = -1;
+        } else if (position <= 0 && direction < 0) {
+            direction = 1;
         }
     }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2e - Bargraph: Todos acesos, apagar 1 por vez em vai e volta
+// ================================================================================
+void modulo1_ex2e() {
+    static unsigned long last_update = 0;
+    static uint8_t position = 0;
+    static int8_t direction = 1;
+    static uint8_t leds = 0xFF;
     
-    // Atualiza contagem a cada 500ms
-    if (millis_custom() - last_count >= 500) {
-        last_count = millis_custom();
+    if (millis_custom() - last_update >= 150) {
+        last_update = millis_custom();
         
-        // Display 1: crescente 0→F
-        display1_value++;
-        if (display1_value > 15) {
-            display1_value = 0;
-        }
+        CLR_BIT(leds, position);
+        PORTB = leds;
         
-        // Display 2: decrescente F→0
-        if (display2_value == 0) {
-            display2_value = 15;
-        } else {
-            display2_value--;
+        position += direction;
+        
+        if (position >= 7 && direction > 0) {
+            direction = -1;
+        } else if (position <= 0 && direction < 0) {
+            direction = 1;
+            leds = 0xFF;  // Reacende todos
         }
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2f - Bargraph: Esquerda para direita mantendo acesos
+// Piscar todos 5x, apagar todos
+// ================================================================================
+void modulo1_ex2f() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t blink_counter = 0;
+    static uint8_t leds = 0;
+    
+    if (step < 8) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            SET_BIT(leds, (7 - step));
+            PORTB = leds;
+            step++;
+        }
+    } else if (step < 18) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            if (leds == 0xFF) {
+                leds = 0x00;
+            } else {
+                leds = 0xFF;
+            }
+            PORTB = leds;
+            blink_counter++;
+            if (blink_counter >= 10) {
+                step = 18;
+                blink_counter = 0;
+            } else {
+                step++;
+            }
+        }
+    } else {
+        PORTB = 0;
+        delay_ms(500);
+        step = 0;
+        leds = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2g - Bargraph: Direita para esquerda mantendo acesos, apagar
+// Depois esquerda para direita
+// ================================================================================
+void modulo1_ex2g() {
+    static unsigned long last_update = 0;
+    static uint8_t step = 0;
+    static uint8_t leds = 0;
+    
+    if (step < 8) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            SET_BIT(leds, step);
+            PORTB = leds;
+            step++;
+        }
+    } else if (step == 8) {
+        if (millis_custom() - last_update >= 500) {
+            last_update = millis_custom();
+            leds = 0;
+            PORTB = 0;
+            step++;
+        }
+    } else if (step < 17) {
+        if (millis_custom() - last_update >= 200) {
+            last_update = millis_custom();
+            SET_BIT(leds, (7 - (step - 9)));
+            PORTB = leds;
+            step++;
+        }
+    } else {
+        delay_ms(500);
+        leds = 0;
+        PORTB = 0;
+        delay_ms(300);
+        step = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2h - Bargraph: Contagem binária crescente 0-255
+// ================================================================================
+void modulo1_ex2h() {
+    static unsigned long last_update = 0;
+    static uint8_t counter = 0;
+    
+    if (millis_custom() - last_update >= 250) {
+        last_update = millis_custom();
+        PORTB = counter;
+        counter++;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 1.2i - Bargraph: Contagem binária decrescente 255-0
+// ================================================================================
+void modulo1_ex2i() {
+    static unsigned long last_update = 0;
+    static uint8_t counter = 255;
+    
+    if (millis_custom() - last_update >= 250) {
+        last_update = millis_custom();
+        PORTB = counter;
+        counter--;
     }
 }
 
@@ -167,49 +338,35 @@ void atualizar_displays() {
 // SETUP E LOOP
 // ================================================================================
 void setup() {
-    // Configura PORTB como saída (segmentos)
-    DDRB = 0xFF;
-    PORTB = 0x00;
+    // Configura PORTB (LEDs do bargraph) como saída
+    DDRB = 0xFF;  // PB0-PB7 como saída
+    PORTB = 0;
     
-    // Configura PC0 e PC1 como saída (seleção de displays)
-    SET_BIT(DDRC, SEL_DISP1);
-    SET_BIT(DDRC, SEL_DISP2);
-    CLR_BIT(PORTC, SEL_DISP1);  // Desliga ambos inicialmente
-    CLR_BIT(PORTC, SEL_DISP2);
+    // Configura LED_TESTE em PC5
+    SET_BIT(DDRC, LED_TESTE);
+    CLR_BIT(PORTC, LED_TESTE);
     
     // Inicializa Timer1
     timer1_init();
+    
+    // ========================================
+    // SELECIONE O EXERCÍCIO AQUI (0-9):
+    // ========================================
+    exercicio_atual = 0;  // 0=Ex1.1, 1=Ex1.2a, 2=Ex1.2b, ..., 9=Ex1.2i
 }
 
 void loop() {
-    atualizar_displays();
+    switch (exercicio_atual) {
+        case 0:  modulo1_ex1();   break;  // 1.1 - Piscar LED 3x rápido/devagar
+        case 1:  modulo1_ex2a();  break;  // 1.2a - Direita→Esquerda mantendo
+        case 2:  modulo1_ex2b();  break;  // 1.2b - Esquerda→Direita mantendo
+        case 3:  modulo1_ex2c();  break;  // 1.2c - 1 LED por vez D→E
+        case 4:  modulo1_ex2d();  break;  // 1.2d - Ping-pong
+        case 5:  modulo1_ex2e();  break;  // 1.2e - Apagar 1 por vez vai-volta
+        case 6:  modulo1_ex2f();  break;  // 1.2f - E→D mantendo, piscar 5x
+        case 7:  modulo1_ex2g();  break;  // 1.2g - D→E, apagar, E→D
+        case 8:  modulo1_ex2h();  break;  // 1.2h - Contagem binária 0-255
+        case 9:  modulo1_ex2i();  break;  // 1.2i - Contagem binária 255-0
+        default: modulo1_ex1();   break;
+    }
 }
-
-/*
- * ================================================================================
- * NOTAS DE IMPLEMENTAÇÃO NO PROTEUS
- * ================================================================================
- * 
- * 1. CIRCUITO DE MULTIPLEXAÇÃO:
- *    - Use transistores NPN (BC547 ou similar) para controlar cada display
- *    - Base do transistor conectada via resistor 1kΩ a PC0/PC1
- *    - Coletor conectado ao catodo comum do display
- *    - Emissor conectado ao GND
- * 
- * 2. RESISTORES:
- *    - Coloque resistores de 220Ω em cada segmento (A-G e DP)
- *    - Total: 8 resistores por display (ou 1 resistor array)
- * 
- * 3. CONFLITO COM CRISTAL:
- *    - Se usar cristal externo em PB6/PB7 (XTAL1/XTAL2):
- *      * Segmentos G e DP não funcionarão corretamente
- *      * Solução 1: Use displays sem esses segmentos (números 0-9 funcionam)
- *      * Solução 2: Mova segmentos G e DP para outra porta (PORTD)
- *      * Solução 3: Use cristal interno (não recomendado para precisão)
- * 
- * 4. TESTE DE FUNCIONAMENTO:
- *    - Display 1 deve mostrar: 0→1→2→...→E→F→0 (loop)
- *    - Display 2 deve mostrar: F→E→D→...→1→0→F (loop)
- *    - Frequência de atualização: 2 Hz (500ms por número)
- * ================================================================================
- */
