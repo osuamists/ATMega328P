@@ -386,6 +386,117 @@ void ex3_7() {
 }
 
 // ================================================================================
+// EXERCÍCIO 3.8 - DOIS BOTÕES + 3 LEDs (SEQUÊNCIA)
+// Botão 1 → sequência 1-2-3
+// Botão 2 → sequência 3-2-1
+// Ambos → apagam
+// ================================================================================
+void ex3_8() {
+    static unsigned long last_update = 0;
+    static uint8_t index = 0;
+    
+    // Lê estado dos botões (1 = solto, 0 = pressionado com pull-up)
+    uint8_t btn1_pressed = READ_BIT(PINC, BTN1) == 0;
+    uint8_t btn2_pressed = READ_BIT(PINC, BTN2) == 0;
+    
+    // Verifica combinações
+    if (btn1_pressed && btn2_pressed) {
+        // Ambos pressionados = apaga tudo
+        CLR_BIT(PORTD, LED1);
+        CLR_BIT(PORTD, LED2);
+        CLR_BIT(PORTB, LED3);
+        index = 0;
+        return;
+    }
+    
+    if (!btn1_pressed && !btn2_pressed) {
+        // Nenhum botão = apaga tudo
+        CLR_BIT(PORTD, LED1);
+        CLR_BIT(PORTD, LED2);
+        CLR_BIT(PORTB, LED3);
+        index = 0;
+        return;
+    }
+    
+    // Avança sequência a cada 150ms
+    if (millis_custom() - last_update >= 150) {
+        last_update = millis_custom();
+        
+        // Apaga todos os LEDs
+        CLR_BIT(PORTD, LED1);
+        CLR_BIT(PORTD, LED2);
+        CLR_BIT(PORTB, LED3);
+        
+        if (btn1_pressed) {
+            // Sequência 1-2-3
+            if (index == 0) SET_BIT(PORTD, LED1);
+            else if (index == 1) SET_BIT(PORTD, LED2);
+            else if (index == 2) SET_BIT(PORTB, LED3);
+        } else if (btn2_pressed) {
+            // Sequência 3-2-1
+            if (index == 0) SET_BIT(PORTB, LED3);
+            else if (index == 1) SET_BIT(PORTD, LED2);
+            else if (index == 2) SET_BIT(PORTD, LED1);
+        }
+        
+        // Avança índice
+        index++;
+        if (index >= 3) index = 0;
+    }
+}
+
+// ================================================================================
+// EXERCÍCIO 3.9 - TRÊS BOTÕES + 4 LEDs
+// Botão 1 → todos acesos (LED1, LED2, LED3, LED4)
+// Botão 2 → apenas LED1 e LED2
+// Botão 3 → apenas LED3 e LED4
+// Botão 1 + Botão 3 → todos apagam
+// ================================================================================
+void ex3_9() {
+    // Lê estado dos botões (1 = solto, 0 = pressionado com pull-up)
+    uint8_t btn1_pressed = READ_BIT(PINC, BTN1) == 0;
+    uint8_t btn2_pressed = READ_BIT(PINC, BTN2) == 0;
+    uint8_t btn3_pressed = READ_BIT(PINC, BTN3) == 0;
+    
+    // Verifica combinações de botões (ordem importa!)
+    if (btn1_pressed && btn3_pressed) {
+        // Botão 1 + Botão 3 = todos apagam
+        CLR_BIT(PORTD, LED1);
+        CLR_BIT(PORTD, LED2);
+        CLR_BIT(PORTB, LED3);
+        CLR_BIT(PORTB, LED4);
+    } 
+    else if (btn1_pressed) {
+        // Botão 1 sozinho = todos acesos
+        SET_BIT(PORTD, LED1);
+        SET_BIT(PORTD, LED2);
+        SET_BIT(PORTB, LED3);
+        SET_BIT(PORTB, LED4);
+    } 
+    else if (btn2_pressed) {
+        // Botão 2 = apenas LED1 e LED2
+        SET_BIT(PORTD, LED1);
+        SET_BIT(PORTD, LED2);
+        CLR_BIT(PORTB, LED3);
+        CLR_BIT(PORTB, LED4);
+    } 
+    else if (btn3_pressed) {
+        // Botão 3 = apenas LED3 e LED4
+        CLR_BIT(PORTD, LED1);
+        CLR_BIT(PORTD, LED2);
+        SET_BIT(PORTB, LED3);
+        SET_BIT(PORTB, LED4);
+    } 
+    else {
+        // Nenhum botão pressionado = todos apagam
+        CLR_BIT(PORTD, LED1);
+        CLR_BIT(PORTD, LED2);
+        CLR_BIT(PORTB, LED3);
+        CLR_BIT(PORTB, LED4);
+    }
+}
+
+// ================================================================================
 // SETUP E LOOP
 // ================================================================================
 void setup() {
@@ -415,7 +526,7 @@ void setup() {
     // ========================================
     // SELECIONE O EXERCÍCIO (1-10):
     // ========================================
-    exercicio_atual = 4;  // Ex 3.4 - Frequência crescente enquanto pressionado
+    exercicio_atual = 9;  // Ex 3.4 - Frequência crescente enquanto pressionado
 }
 
 void loop() {
@@ -429,6 +540,8 @@ void loop() {
         case 5:  ex3_5();  break;
         case 6:  ex3_6();  break;
         case 7:  ex3_7();  break;
+        case 8:  ex3_8();  break;
+        case 9:  ex3_9();  break;
         default: ex3_2();  break;
     }
 }
