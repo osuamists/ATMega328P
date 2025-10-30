@@ -43,6 +43,15 @@
 #define LED3    PB0
 #define LED4    PB1
 
+// Display 7 Segmentos (cátodo comum)
+#define SEG_A   PC0  // Pino 23
+#define SEG_B   PC1  // Pino 24
+#define SEG_C   PC5  // Pino 28
+#define SEG_D   PD5  // Pino 9
+#define SEG_E   PD6  // Pino 10
+#define SEG_F   PD7  // Pino 11
+#define SEG_G   PB2  // Pino 14
+
 // ================================================================================
 // VARIÁVEIS GLOBAIS
 // ================================================================================
@@ -68,6 +77,24 @@ uint8_t ex34_btn_state = 0;
 
 // Ex 3.5
 uint8_t ex35_freq_level = 0;
+
+// ================================================================================
+// TABELA DE DÍGITOS - DISPLAY 7 SEGMENTOS
+// ================================================================================
+// Padrão para cada dígito (bits: GFEDCBA)
+// Bit 0=A, Bit 1=B, Bit 2=C, Bit 3=D, Bit 4=E, Bit 5=F, Bit 6=G
+const uint8_t DIGIT_7SEG[10] = {
+    0b00111111,  // 0: A B C D E F
+    0b00000110,  // 1: B C
+    0b01011011,  // 2: A B D E G
+    0b01001111,  // 3: A B C D G
+    0b01100110,  // 4: B C F G
+    0b01101101,  // 5: A C D F G
+    0b01111101,  // 6: A C D E F G
+    0b00000111,  // 7: A B C
+    0b01111111,  // 8: A B C D E F G
+    0b01101111   // 9: A B C D F G
+};
 
 // ================================================================================
 // TIMER1 - 1ms
@@ -124,6 +151,24 @@ void ler_botoes() {
         
         btn_last[i] = reading;
     }
+}
+
+// ================================================================================
+// FUNÇÃO AUXILIAR - ATUALIZA DISPLAY 7 SEGMENTOS
+// ================================================================================
+void atualizar_display(uint8_t digito) {
+    if (digito > 9) digito = 0;  // Limita a 0-9
+    
+    uint8_t pattern = DIGIT_7SEG[digito];
+    
+    // Atualiza cada segmento individualmente
+    if (pattern & (1 << 0)) SET_BIT(PORTC, SEG_A); else CLR_BIT(PORTC, SEG_A);
+    if (pattern & (1 << 1)) SET_BIT(PORTC, SEG_B); else CLR_BIT(PORTC, SEG_B);
+    if (pattern & (1 << 2)) SET_BIT(PORTC, SEG_C); else CLR_BIT(PORTC, SEG_C);
+    if (pattern & (1 << 3)) SET_BIT(PORTD, SEG_D); else CLR_BIT(PORTD, SEG_D);
+    if (pattern & (1 << 4)) SET_BIT(PORTD, SEG_E); else CLR_BIT(PORTD, SEG_E);
+    if (pattern & (1 << 5)) SET_BIT(PORTD, SEG_F); else CLR_BIT(PORTD, SEG_F);
+    if (pattern & (1 << 6)) SET_BIT(PORTB, SEG_G); else CLR_BIT(PORTB, SEG_G);
 }
 
 // ================================================================================
@@ -497,6 +542,77 @@ void ex3_9() {
 }
 
 // ================================================================================
+// EXERCÍCIO 3.10 - 3 BOTÕES + 3 LEDs + DISPLAY 7 SEGMENTOS
+// Botão 1 → display "1"; LEDs: [1-ON, 2-OFF, 3-piscando]
+// Botão 2 → display "2"; LEDs: [1-piscando, 2-ON, 3-ON]
+// Botão 3 → display "3"; LEDs: [1-OFF, 2-piscando, 3-OFF]
+// ================================================================================
+void ex3_10() {
+    static unsigned long last_blink = 0;
+    static uint8_t modo = 0;  // 0 = nenhum, 1/2/3 = modos
+    
+    // Detecta cliques nos botões
+    if (btn_click[0]) {
+        btn_click[0] = 0;
+        modo = 1;
+        last_blink = millis_custom();
+    }
+    if (btn_click[1]) {
+        btn_click[1] = 0;
+        modo = 2;
+        last_blink = millis_custom();
+    }
+    if (btn_click[2]) {
+        btn_click[2] = 0;
+        modo = 3;
+        last_blink = millis_custom();
+    }
+    
+    // Atualiza display com o modo atual
+    atualizar_display(modo);
+    
+    // Controla LEDs baseado no modo
+    switch (modo) {
+        case 1:  // Botão 1: LED1=ON, LED2=OFF, LED3=piscando
+            SET_BIT(PORTD, LED1);
+            CLR_BIT(PORTD, LED2);
+            
+            if (millis_custom() - last_blink >= 150) {
+                last_blink = millis_custom();
+                TGL_BIT(PORTB, LED3);
+            }
+            break;
+            
+        case 2:  // Botão 2: LED1=piscando, LED2=ON, LED3=ON
+            SET_BIT(PORTD, LED2);
+            SET_BIT(PORTB, LED3);
+            
+            if (millis_custom() - last_blink >= 150) {
+                last_blink = millis_custom();
+                TGL_BIT(PORTD, LED1);
+            }
+            break;
+            
+        case 3:  // Botão 3: LED1=OFF, LED2=piscando, LED3=OFF
+            CLR_BIT(PORTD, LED1);
+            CLR_BIT(PORTB, LED3);
+            
+            if (millis_custom() - last_blink >= 150) {
+                last_blink = millis_custom();
+                TGL_BIT(PORTD, LED2);
+            }
+            break;
+            
+        default:  // Nenhum modo = tudo apagado
+            CLR_BIT(PORTD, LED1);
+            CLR_BIT(PORTD, LED2);
+            CLR_BIT(PORTB, LED3);
+            atualizar_display(0);  // Display apagado
+            break;
+    }
+}
+
+// ================================================================================
 // SETUP E LOOP
 // ================================================================================
 void setup() {
@@ -505,6 +621,29 @@ void setup() {
     SET_BIT(DDRD, LED2);
     SET_BIT(DDRB, LED3);
     SET_BIT(DDRB, LED4);
+    
+    // ========================================
+    // CONFIGURA PINOS DO DISPLAY COMO SAÍDA
+    // ========================================
+    // PORTC: SEG_A (PC0), SEG_B (PC1), SEG_C (PC5)
+    SET_BIT(DDRC, SEG_A);
+    SET_BIT(DDRC, SEG_B);
+    SET_BIT(DDRC, SEG_C);
+    CLR_BIT(PORTC, SEG_A);
+    CLR_BIT(PORTC, SEG_B);
+    CLR_BIT(PORTC, SEG_C);
+    
+    // PORTD: SEG_D (PD5), SEG_E (PD6), SEG_F (PD7) - além de LED1 e LED2
+    SET_BIT(DDRD, SEG_D);
+    SET_BIT(DDRD, SEG_E);
+    SET_BIT(DDRD, SEG_F);
+    CLR_BIT(PORTD, SEG_D);
+    CLR_BIT(PORTD, SEG_E);
+    CLR_BIT(PORTD, SEG_F);
+    
+    // PORTB: SEG_G (PB2) - além de LED3 e LED4
+    SET_BIT(DDRB, SEG_G);
+    CLR_BIT(PORTB, SEG_G);
     
     // Apaga todos LEDs
     CLR_BIT(PORTD, LED1);
@@ -526,7 +665,7 @@ void setup() {
     // ========================================
     // SELECIONE O EXERCÍCIO (1-10):
     // ========================================
-    exercicio_atual = 9;  // Ex 3.4 - Frequência crescente enquanto pressionado
+    exercicio_atual = 10;  // Ex 3.10 - Display 7 Segmentos + Botões + LEDs
 }
 
 void loop() {
@@ -542,6 +681,7 @@ void loop() {
         case 7:  ex3_7();  break;
         case 8:  ex3_8();  break;
         case 9:  ex3_9();  break;
+        case 10: ex3_10(); break;
         default: ex3_2();  break;
     }
 }
