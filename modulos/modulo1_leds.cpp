@@ -11,6 +11,7 @@
  * 
  * CONEXÕES DE HARDWARE:
  * - LED_TESTE: PC5 com resistor de 220Ω
+ * - LED D7: PC0 com resistor de 220Ω (NOVO!)
  * - BARGRAPH (8 LEDs completos em PORTB):
  *   * PB0 (pino 12) → LED0 com resistor de 220Ω
  *   * PB1 (pino 13) → LED1 com resistor de 220Ω
@@ -39,10 +40,12 @@
 // ================================================================================
 // DEFINIÇÕES DE PINOS
 // ================================================================================
-#define LED_TESTE   PC5    // LED de teste individual
+#define LED_TESTE_PIN   5    // PC5 - LED de teste individual
+#define LED_D7_PIN      0    // PC0 - LED D7 (NOVO!)
 
 // BARGRAPH - Usando PORTB completo (8 LEDs)
 // PORTB: PB0-PB7 = 8 LEDs para bargraph
+// PORTC: PC5 = LED de teste (Ex 1.1), PC0 = LED D7
 // PORTD: Livre, PD5/PD6 reservados para cristal de 16MHz
 
 // ================================================================================
@@ -87,6 +90,18 @@ void delay_ms(unsigned long ms) {
 }
 
 // ================================================================================
+// FUNÇÃO DE RESET - Limpa todos os LEDs e variáveis estáticas
+// ================================================================================
+void reset_all_exercises() {
+    // Apaga todos os LEDs
+    PORTB = 0;
+    PORTC = 0;
+    
+    // Aguarda que as variáveis estáticas sejam reinicializadas
+    // Isto é feito implicitamente na chamada seguinte de cada função
+}
+
+// ================================================================================
 // EXERCÍCIO 1.1 - Piscar LED (PC5)
 // 3x rápido (200ms) e 3x devagar (500ms), repetir eternamente
 // ================================================================================
@@ -95,9 +110,13 @@ void modulo1_ex1() {
     static uint8_t fase = 0;  // 0-5: rápido, 6-11: devagar
     unsigned long intervalo = (fase < 6) ? 200 : 500;
     
+    // CRÍTICO: Apaga PORTB e PC0 (Ex 1.1 só usa PC5)
+    PORTB = 0x00;
+    CLR_BIT(PORTC, LED_D7_PIN);  // Garante que PC0 (D7) está apagado
+    
     if (millis_custom() - last_toggle >= intervalo) {
         last_toggle = millis_custom();
-        TGL_BIT(PORTC, LED_TESTE);
+        TGL_BIT(PORTC, LED_TESTE_PIN);
         fase++;
         if (fase >= 12) fase = 0;
     }
@@ -112,6 +131,16 @@ void modulo1_ex2a() {
     static uint8_t step = 0;
     static uint8_t leds = 0;
     static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        step = 0;
+        leds = 0;
+        repeats = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (millis_custom() - last_update >= 100) {
         last_update = millis_custom();
@@ -130,6 +159,7 @@ void modulo1_ex2a() {
             if (repeats >= 2) {
                 repeats = 0;
                 step = 10;  // Força saída
+                initialized = 0;  // Reset para próxima vez
             }
         }
     }
@@ -144,6 +174,16 @@ void modulo1_ex2b() {
     static uint8_t step = 0;
     static uint8_t leds = 0;
     static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        step = 0;
+        leds = 0;
+        repeats = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (millis_custom() - last_update >= 100) {
         last_update = millis_custom();
@@ -162,6 +202,7 @@ void modulo1_ex2b() {
             if (repeats >= 2) {
                 repeats = 0;
                 step = 10;  // Força saída
+                initialized = 0;  // Reset para próxima vez
             }
         }
     }
@@ -175,6 +216,15 @@ void modulo1_ex2c() {
     static unsigned long last_update = 0;
     static uint8_t position = 0;
     static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        position = 0;
+        repeats = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (millis_custom() - last_update >= 75) {
         last_update = millis_custom();
@@ -186,6 +236,7 @@ void modulo1_ex2c() {
             if (repeats >= 2) {
                 repeats = 0;
                 PORTB = 0;
+                initialized = 0;  // Reset para próxima vez
             }
         }
     }
@@ -200,6 +251,16 @@ void modulo1_ex2d() {
     static uint8_t position = 0;
     static int8_t direction = 1;
     static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        position = 0;
+        direction = 1;
+        repeats = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (millis_custom() - last_update >= 75) {
         last_update = millis_custom();
@@ -215,6 +276,7 @@ void modulo1_ex2d() {
             if (repeats >= 2) {
                 repeats = 0;
                 PORTB = 0;
+                initialized = 0;  // Reset para próxima vez
             }
         }
     }
@@ -230,7 +292,7 @@ void modulo1_ex2e() {
     static uint8_t leds = 0xFF;
     static uint8_t repeats = 0;
     static uint8_t initialized = 0;
-    static uint8_t show_all_time = 0;  // Contador para mostrar todos acesos
+    static uint8_t show_all_time = 0;
     
     // Inicializa todos os LEDs acesos
     if (!initialized) {
@@ -238,8 +300,10 @@ void modulo1_ex2e() {
         PORTB = 0xFF;
         position = 0;
         direction = 1;
-        initialized = 1;
+        repeats = 0;
         show_all_time = 150;  // Mostra todos acesos por 150ms
+        last_update = millis_custom();
+        initialized = 1;
     }
     
     if (millis_custom() - last_update >= 75) {
@@ -275,7 +339,7 @@ void modulo1_ex2e() {
                     
                     if (repeats >= 2) {
                         repeats = 0;
-                        initialized = 0;
+                        initialized = 0;  // Reset para próxima vez
                         PORTB = 0;
                     }
                 }
@@ -293,6 +357,16 @@ void modulo1_ex2f() {
     static uint8_t step = 0;
     static uint8_t blink_counter = 0;
     static uint8_t leds = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        step = 0;
+        blink_counter = 0;
+        leds = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (step < 8) {
         if (millis_custom() - last_update >= 100) {
@@ -322,6 +396,7 @@ void modulo1_ex2f() {
         PORTB = 0;
         step = 0;
         leds = 0;
+        initialized = 0;  // Reset para próxima vez
     }
 }
 
@@ -334,6 +409,16 @@ void modulo1_ex2g() {
     static uint8_t step = 0;
     static uint8_t leds = 0;
     static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        step = 0;
+        leds = 0;
+        repeats = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (step < 8) {
         if (millis_custom() - last_update >= 100) {
@@ -363,6 +448,7 @@ void modulo1_ex2g() {
         if (repeats >= 2) {
             repeats = 0;
             step = 100;  // Força saída
+            initialized = 0;  // Reset para próxima vez
         } else {
             step = 0;
         }
@@ -376,6 +462,15 @@ void modulo1_ex2h() {
     static unsigned long last_update = 0;
     static uint8_t counter = 0;
     static uint8_t repeats = 0;
+    static uint8_t initialized = 0;
+    
+    if (!initialized) {
+        PORTB = 0;
+        counter = 0;
+        repeats = 0;
+        last_update = millis_custom();
+        initialized = 1;
+    }
     
     if (millis_custom() - last_update >= 150) {
         last_update = millis_custom();
@@ -386,6 +481,7 @@ void modulo1_ex2h() {
             if (repeats >= 2) {
                 repeats = 0;
                 PORTB = 0;
+                initialized = 0;  // Reset para próxima vez
             }
         }
     }
@@ -402,6 +498,9 @@ void modulo1_ex2i() {
     
     if (!initialized) {
         PORTB = 255;
+        counter = 255;
+        repeats = 0;
+        last_update = millis_custom();
         initialized = 1;
     }
     
@@ -413,7 +512,7 @@ void modulo1_ex2i() {
             repeats++;
             if (repeats >= 2) {
                 repeats = 0;
-                initialized = 0;
+                initialized = 0;  // Reset para próxima vez
                 PORTB = 0;
             } else {
                 counter = 255;
@@ -426,13 +525,24 @@ void modulo1_ex2i() {
 // SETUP E LOOP
 // ================================================================================
 void setup() {
+    // CRÍTICO: Desabilita pull-ups globalmente
+    MCUCR |= (1 << PUD);  // Desativa pull-up universal
+    
     // Configura PORTB (LEDs do bargraph) como saída
-    DDRB = 0xFF;  // PB0-PB7 como saída
-    PORTB = 0;
+    DDRB = 0xFF;    // PB0-PB7 como saída
+    PORTB = 0x00;   // Apaga TODOS os LEDs do bargraph (CRÍTICO!)
+    
+    // Configura PORTC
+    DDRC = 0xFF;    // PC0-PC7 como saída
+    PORTC = 0x00;   // Apaga todos os pinos de PORTC
     
     // Configura LED_TESTE em PC5
-    SET_BIT(DDRC, LED_TESTE);
-    CLR_BIT(PORTC, LED_TESTE);
+    SET_BIT(DDRC, LED_TESTE_PIN);   // PC5 como saída
+    CLR_BIT(PORTC, LED_TESTE_PIN);  // PC5 apagado
+    
+    // Configura LED D7 em PC0 (NOVO!)
+    SET_BIT(DDRC, LED_D7_PIN);      // PC0 como saída
+    CLR_BIT(PORTC, LED_D7_PIN);     // PC0 apagado
     
     // Inicializa Timer1
     timer1_init();
@@ -440,28 +550,43 @@ void setup() {
     // ========================================
     // SELECIONE O EXERCÍCIO AQUI (0-9):
     // ========================================
-    exercicio_atual = 1;  // Começa em 1.2a
+    exercicio_atual = 0;  // Começa em 1.1
     exercise_start_time = millis_custom();
 }
 
 void loop() {
     // Verifica se tempo do exercício atual expirou
     if (millis_custom() - exercise_start_time >= exercise_duration) {
+        // Apaga TUDO com força
+        PORTB = 0x00;
+        PORTC = 0x00;
+        DDRB = 0x00;  // Coloca como entrada (desabilita)
+        DDRC = 0x00;  // Coloca como entrada (desabilita)
+        
+        // Aguarda transição limpa
+        delay_ms(700);
+        
+        // Reconfigura as saídas
+        DDRB = 0xFF;
+        DDRC = 0xFF;
+        PORTB = 0x00;
+        PORTC = 0x00;
+        
+        // Vai para próximo exercício
         exercicio_atual++;
-        if (exercicio_atual > 9) exercicio_atual = 1;  // Volta para 1.2a após 1.2i
+        if (exercicio_atual > 9) exercicio_atual = 0;  // Volta para Ex 1.1
+        
         exercise_start_time = millis_custom();
-        PORTB = 0;  // Apaga todos os LEDs na transição
-        delay_ms(500);  // Pausa entre exercícios
     }
     
     switch (exercicio_atual) {
         case 0:  modulo1_ex1();   break;  // 1.1 - Piscar LED 3x rápido/devagar
-        case 1:  modulo1_ex2a();  break;  // 1.2a - Direita→Esquerda mantendo
-        case 2:  modulo1_ex2b();  break;  // 1.2b - Esquerda→Direita mantendo
-        case 3:  modulo1_ex2c();  break;  // 1.2c - 1 LED por vez D→E
+        case 1:  modulo1_ex2a();  break;  // 1.2a - Esquerda→Direita mantendo
+        case 2:  modulo1_ex2b();  break;  // 1.2b - Direita→Esquerda mantendo
+        case 3:  modulo1_ex2c();  break;  // 1.2c - 1 LED por vez E→D
         case 4:  modulo1_ex2d();  break;  // 1.2d - Ping-pong
         case 5:  modulo1_ex2e();  break;  // 1.2e - Apagar 1 por vez vai-volta
-        case 6:  modulo1_ex2f();  break;  // 1.2f - E→D mantendo, piscar 5x
+        case 6:  modulo1_ex2f();  break;  // 1.2f - E→D mantendo, piscar 2x
         case 7:  modulo1_ex2g();  break;  // 1.2g - D→E, apagar, E→D
         case 8:  modulo1_ex2h();  break;  // 1.2h - Contagem binária 0-255
         case 9:  modulo1_ex2i();  break;  // 1.2i - Contagem binária 255-0
