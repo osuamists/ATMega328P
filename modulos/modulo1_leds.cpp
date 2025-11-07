@@ -2,9 +2,6 @@
  * MÓDULO 1 - CONTROLE DE LEDs
  * ATmega328P @ 16MHz
  * 
- * D7 (PC0) espelha o comportamento de D8 (PB7)
- */
-
 #include <Arduino.h> 
 #include <avr/io.h>
 #include <avr/interrupt.h>
