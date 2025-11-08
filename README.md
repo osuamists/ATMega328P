@@ -240,7 +240,7 @@ unsigned long exercise_duration = 7000;   // 7 segundos por exercício
 ## 👨‍💻 Autores
 
 
-Desenvolvido por: Luís Guilherme Busaglo Lopes, Marcos Vinícius Morais Rios, Patrick Melo Albuquerque e Suamí Gomes Santos
+Desenvolvido por: Luís Guilherme Busaglo Lopes, Marcos Vinícius Morais Rios, Matheus Machado Santos Patrick Melo Albuquerque e Suamí Gomes Santos
 
 
  Finalidade: Projeto educacional para ATmega328P com Proteus.
